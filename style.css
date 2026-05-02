@@ -1,0 +1,315 @@
+/* === RESET & BASE === */
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --text-primary: #ffffff;
+    --border-color: #d4af37; /* Gold/Brass border */
+    --bg-dark: #222;
+    --xp-color: #3b5998; /* Blue XP */
+    --ui-bg: rgba(0, 0, 0, 0.7);
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1a4a1a; /* Dark grassy green */
+    font-family: 'VT323', monospace;
+    color: var(--text-primary);
+    user-select: none;
+}
+
+/* === CANVAS === */
+#gameCanvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* === SCREENS === */
+.screen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: all;
+}
+
+/* === START & GAME OVER SCREENS === */
+#startScreen, #gameOverScreen, #pauseScreen {
+    background: rgba(0, 0, 0, 0.85);
+    text-align: center;
+}
+
+h1 {
+    font-size: 5rem;
+    color: #fff;
+    text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+}
+
+p {
+    font-size: 1.5rem;
+    color: #ccc;
+    margin-bottom: 20px;
+}
+
+/* === BUTTONS === */
+button {
+    font-family: 'VT323', monospace;
+    font-size: 2rem;
+    padding: 10px 30px;
+    background: #000;
+    color: #fff;
+    border: 4px solid var(--border-color);
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+button:hover {
+    background: #333;
+}
+
+/* === HUD (NEW RETRO STYLE) === */
+#hud {
+    justify-content: flex-start;
+    padding: 0;
+}
+
+.top-bar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    background: #000;
+    border-bottom: 3px solid var(--border-color);
+    height: 30px;
+    padding: 0 10px;
+    gap: 10px;
+}
+
+.xp-container {
+    flex-grow: 1;
+    height: 15px;
+    background: #111;
+    border: 1px solid #444;
+    position: relative;
+}
+
+.xp-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--xp-color);
+    transition: width 0.2s linear;
+}
+
+.level-display {
+    font-size: 1.5rem;
+    color: #fff;
+    white-space: nowrap;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.stats-row {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 20px;
+}
+
+.inventory-display {
+    display: flex;
+    gap: 5px;
+}
+
+.item-slot {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border-color);
+    background: rgba(0,0,0,0.5);
+}
+
+.whip-icon {
+    /* Simple whip icon placeholder via CSS */
+    position: relative;
+}
+.whip-icon::after {
+    content: "➰";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.2rem;
+}
+
+.timer-display {
+    font-size: 3rem;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 #000;
+    margin-top: -10px;
+}
+
+.right-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 1.5rem;
+    text-shadow: 1px 1px 0 #000;
+    align-items: flex-start;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* === LEVEL UP SCREEN === */
+#levelUpScreen {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+#levelUpScreen h2 {
+    font-size: 4rem;
+    color: var(--border-color);
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 30px;
+}
+
+.cards-container {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.upgrade-card {
+    background: #000;
+    border: 4px solid var(--border-color);
+    width: 250px;
+    padding: 20px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.upgrade-card:hover {
+    background: #222;
+}
+
+.upgrade-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.upgrade-name {
+    font-size: 1.8rem;
+    color: var(--border-color);
+    margin-bottom: 10px;
+}
+
+.upgrade-desc {
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+/* Disable new high score animation for retro style */
+.new-high-score {
+    color: var(--border-color) !important;
+    font-size: 2rem !important;
+    display: none;
+}
+.new-high-score.visible {
+    display: block !important;
+}
+
+.armor-display {
+    margin-left: 10px;
+    font-size: 1.5rem;
+    color: #fff;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.score-display {
+    margin-left: auto;
+    font-size: 1.5rem;
+    color: #fff;
+    text-shadow: 1px 1px 0 #000;
+}
+
+/* === MAP / DIFFICULTY SELECTORS === */
+.selector-block {
+    margin: 14px 0 6px;
+    text-align: center;
+}
+
+.selector-label {
+    font-size: 1.4rem;
+    color: var(--border-color);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.selector-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.selector-btn {
+    font-family: 'VT323', monospace;
+    font-size: 1.4rem;
+    padding: 6px 18px;
+    background: #000;
+    color: #ccc;
+    border: 3px solid #555;
+    cursor: pointer;
+    text-transform: uppercase;
+    min-width: 130px;
+}
+
+.selector-btn:hover {
+    background: #222;
+    color: #fff;
+}
+
+.selector-btn.active {
+    border-color: var(--border-color);
+    color: #fff;
+    background: #2a1a00;
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.55);
+}
+
+.selector-desc {
+    font-size: 1.1rem;
+    color: #aaa;
+    margin-top: 6px;
+    min-height: 1.4em;
+}
+
+.btn-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 14px;
+}
+

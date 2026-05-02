@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Survival Arena</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen active">
+        <h1>Zombie Survival Arena</h1>
+        <p>Survive endless zombie waves. Move with WASD, aim with mouse.</p>
+        <div class="high-score-display">High Score: <span id="startHighScore">0</span></div>
+        <div class="gold-display-main">Gold: <span id="mainGoldCount">0</span></div>
+
+        <div class="selector-block">
+            <div class="selector-label">Map</div>
+            <div id="mapSelector" class="selector-row"></div>
+            <div id="mapDesc" class="selector-desc"></div>
+        </div>
+
+        <div class="selector-block">
+            <div class="selector-label">Difficulty</div>
+            <div id="difficultySelector" class="selector-row"></div>
+            <div id="difficultyDesc" class="selector-desc"></div>
+        </div>
+
+        <div class="btn-row">
+            <button id="startBtn">Start Game</button>
+            <button id="shopBtn">Meta Shop</button>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="screen">
+        <div class="top-bar">
+            <div class="xp-container">
+                <div id="xpBar" class="xp-bar"></div>
+            </div>
+            <div class="level-display">LV <span id="levelText">1</span></div>
+            <div id="armorLevelText" class="armor-display">Armor: 0</div>
+            <div id="runInfoDisplay" class="armor-display">—</div>
+            <div id="scoreDisplay" class="score-display">Score: 0</div>
+        </div>
+        <div class="stats-row">
+            <div class="inventory-display">
+                <!-- Placeholder for items -->
+                <div class="item-slot whip-icon"></div>
+            </div>
+            <div class="timer-display" id="timeDisplay">00:00</div>
+            <div class="right-stats">
+                <div class="stat"><span id="killDisplay">0</span> 💀</div>
+                <div class="stat"><span id="goldDisplay">0</span> 🪙</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Level Up Screen -->
+    <div id="levelUpScreen" class="screen">
+        <h2>Level Up!</h2>
+        <p>Choose an upgrade:</p>
+        <div id="upgradeCardsContainer" class="cards-container">
+            <!-- Cards injected via JS -->
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen">
+        <h1>Game Over</h1>
+        <div class="final-stats">
+            <p>Survival Time: <span id="goTime">00:00</span></p>
+            <p>Kill Count: <span id="goKills">0</span></p>
+            <p>Level Reached: <span id="goLevel">1</span></p>
+            <p>Score: <span id="goScore">0</span></p>
+            <p class="new-high-score" id="goNewHighScore">New High Score!</p>
+        </div>
+        <div class="btn-row">
+            <button id="restartBtn">Restart</button>
+            <button id="menuBtn">Main Menu</button>
+        </div>
+    </div>
+
+    <!-- Meta Shop Screen -->
+    <div id="shopScreen" class="screen">
+        <h1>Meta Shop</h1>
+        <p>Buy permanent upgrades with gold.</p>
+        <div class="gold-display-shop">Gold: <span id="shopGoldCount">0</span></div>
+        <div id="shopItemsContainer" class="cards-container">
+            <!-- Shop items injected via JS -->
+        </div>
+        <button id="closeShopBtn">Close</button>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pauseScreen" class="screen">
+        <h1>Paused</h1>
+        <p>Press ESC to resume</p>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
