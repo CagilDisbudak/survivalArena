@@ -256,7 +256,8 @@ class Particle {
         this.maxLife = life;
     }
     update(dt) {
-        this.pos.add(new Vector2(this.vel.x * dt, this.vel.y * dt));
+        this.pos.x += this.vel.x * dt;
+        this.pos.y += this.vel.y * dt;
         this.life -= dt;
     }
     draw(ctx, cam) {
@@ -340,13 +341,7 @@ class WhipAttack {
         grad.addColorStop(1, "rgba(255, 255, 255, 0)");
         
         ctx.fillStyle = grad;
-        ctx.shadowBlur = this.tier >= 4 ? 30 : 15;
-        ctx.shadowColor = tierColor;
-        
-        if (this.tier >= 4) {
-            ctx.filter = 'contrast(150%) brightness(150%)';
-        }
-        
+
         ctx.beginPath();
         // The arc starts at the beginning of the swing and ends at the current sword position
         ctx.ellipse(0, 0, this.range, this.range, 0, -Math.PI/2, swingAngle);
@@ -523,35 +518,41 @@ class Shrine {
         const img = ASSETS.dungeon.pedestals;
         if (!img || !img.complete || !img.naturalWidth) return;
 
-        ctx.save();
         const scale = 3;
         const sw = 16, sh = 32;
         const sx = this.variant * 32;
 
         if (this.used) {
+            const prevAlpha = ctx.globalAlpha;
             ctx.globalAlpha = 0.4;
-            ctx.filter = 'grayscale(100%)';
-        } else {
-            const glow = (Math.sin(this.glowTimer * 2.5) + 1) * 0.5;
-            ctx.shadowBlur = 18 + glow * 22;
-            ctx.shadowColor = '#ffd700';
+            ctx.drawImage(img, sx, 0, sw, sh, x - (sw * scale) / 2, y - sh * scale, sw * scale, sh * scale);
+            ctx.globalAlpha = prevAlpha;
+            return;
+        }
+
+        const glowVal = (Math.sin(this.glowTimer * 2.5) + 1) * 0.5;
+        const glowSprite = gameInstance && gameInstance.glowSprite;
+        if (glowSprite) {
+            const gs = 90 + glowVal * 30;
+            const prevComp = ctx.globalCompositeOperation;
+            const prevAlpha = ctx.globalAlpha;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.30 + glowVal * 0.25;
+            ctx.drawImage(glowSprite, x - gs/2, y - sh*scale/2 - gs/2, gs, gs);
+            ctx.globalCompositeOperation = prevComp;
+            ctx.globalAlpha = prevAlpha;
         }
 
         ctx.drawImage(img, sx, 0, sw, sh, x - (sw * scale) / 2, y - sh * scale, sw * scale, sh * scale);
 
-        // Floating golden orb above unused shrines
-        if (!this.used) {
-            const bounce = Math.sin(this.glowTimer * 3) * 4;
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = '#ffd700';
-            ctx.fillStyle = '#ffe066';
-            ctx.globalAlpha = 0.9;
-            ctx.beginPath();
-            ctx.arc(x, y - sh * scale - 8 + bounce, 6, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        ctx.restore();
+        const bounce = Math.sin(this.glowTimer * 3) * 4;
+        ctx.fillStyle = '#ffe066';
+        const prevAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(x, y - sh * scale - 8 + bounce, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = prevAlpha;
     }
 }
 
@@ -573,22 +574,24 @@ class Candelabra {
         const img = ASSETS.dungeon.full;
         if (!img || !img.complete || !img.naturalWidth) return;
 
-        ctx.save();
-
         const flicker = (Math.sin(this.animTimer * 8 + this.flickerOffset) + 1) * 0.5;
-        const warmth = `rgba(255, ${140 + Math.floor(flicker * 40)}, 40, 0.85)`;
-        ctx.shadowBlur = 22 + flicker * 18;
-        ctx.shadowColor = warmth;
+        const glow = gameInstance && gameInstance.glowSprite;
+        if (glow) {
+            const gs = 80 + flicker * 30;
+            const prevComp = ctx.globalCompositeOperation;
+            const prevAlpha = ctx.globalAlpha;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.35 + flicker * 0.15;
+            ctx.drawImage(glow, x - gs/2, y - 32 - gs/2, gs, gs);
+            ctx.globalCompositeOperation = prevComp;
+            ctx.globalAlpha = prevAlpha;
+        }
 
         const scale = 3;
         const sw = 16, sh = 32;
-        // full.png (1104x416): candelabra/torch objects spread across the sheet
-        // Columns 0-3 × 16px = first 4 tall objects (64px wide)
         const sx = this.variant * 16;
         const sy = 0;
         ctx.drawImage(img, sx, sy, sw, sh, x - (sw * scale) / 2, y - sh * scale, sw * scale, sh * scale);
-
-        ctx.restore();
     }
 }
 
@@ -1071,9 +1074,14 @@ class Player {
 class Game {
     constructor() {
         this.canvas = document.getElementById(CONFIG.canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        // Disable image smoothing for pixel art look
+        this.ctx = this.canvas.getContext('2d', { alpha: false });
         this.ctx.imageSmoothingEnabled = false;
+        this.terrainPattern = null;
+        this.hudAccum = 0;
+        this.fpsCap = 60;
+        this.frameMinDt = 1 / this.fpsCap - 0.001;
+        this.lastFrameTime = 0;
+        this.glowSprite = null;
         
         // Meta Progression
         this.totalGold = parseInt(localStorage.getItem('zsaTotalGold')) || 0;
@@ -1140,8 +1148,44 @@ class Game {
         this.loading = true;
         loadAssets().then(() => {
             this.loading = false;
+            this.buildTerrainPattern();
+            this.buildGlowSprite();
             this.init();
         });
+    }
+
+    buildGlowSprite() {
+        const size = 96;
+        const off = document.createElement('canvas');
+        off.width = size;
+        off.height = size;
+        const g = off.getContext('2d');
+        const grad = g.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+        grad.addColorStop(0.4, 'rgba(255,255,255,0.35)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, size, size);
+        this.glowSprite = off;
+    }
+
+    buildTerrainPattern() {
+        const tileSize = 64;
+        const chunkTiles = 8;
+        const off = document.createElement('canvas');
+        off.width = chunkTiles * tileSize;
+        off.height = chunkTiles * tileSize;
+        const ictx = off.getContext('2d');
+        ictx.imageSmoothingEnabled = false;
+        const len = ASSETS.floor.length || 1;
+        for (let c = 0; c < chunkTiles; c++) {
+            for (let r = 0; r < chunkTiles; r++) {
+                const idx = Math.abs((c * 13 + r * 7) % len);
+                const img = ASSETS.floor[idx];
+                if (img) ictx.drawImage(img, c * tileSize, r * tileSize, tileSize, tileSize);
+            }
+        }
+        this.terrainPattern = this.ctx.createPattern(off, 'repeat');
     }
 
     init() {
@@ -1313,10 +1357,16 @@ class Game {
 
     gameOver() {
         this.state = 'gameOver';
-        
-        // Add current run gold to total
+
         this.totalGold += this.gold;
         localStorage.setItem('zsaTotalGold', this.totalGold);
+
+        const finalScore = this.lastScore || (this.kills * 10 + Math.floor(this.currentTime / 1000) + this.player.level * 20);
+        const storedHigh = parseInt(localStorage.getItem('zsaHighScore')) || 0;
+        const newHighScore = finalScore > storedHigh;
+        if (newHighScore) localStorage.setItem('zsaHighScore', finalScore);
+        document.getElementById('goNewHighScore').classList.toggle('visible', newHighScore);
+        document.getElementById('goScore').innerText = finalScore;
 
         document.getElementById('goTime').innerText = this.formatTime(this.currentTime);
         document.getElementById('goKills').innerText = this.kills;
@@ -1586,7 +1636,11 @@ class Game {
         this.particles = this.particles.filter(p => p.life > 0);
         this.floatingTexts = this.floatingTexts.filter(t => t.life > 0);
 
-        this.updateHUD();
+        this.hudAccum += dt;
+        if (this.hudAccum >= 0.1) {
+            this.hudAccum = 0;
+            this.updateHUD();
+        }
     }
 
     updateHUD() {
@@ -1601,20 +1655,10 @@ class Game {
         
         document.getElementById('timeDisplay').innerText = this.formatTime(this.currentTime);
         
-        // Compute score: simple formula based on kills, time (seconds), level
         const timeSec = Math.floor(this.currentTime / 1000);
         const score = this.kills * 10 + timeSec + this.player.level * 20;
+        this.lastScore = score;
         document.getElementById('scoreDisplay').innerText = `Score: ${score}`;
-        
-        // Save high score
-        const stored = localStorage.getItem('zsaHighScore');
-        const highScore = stored ? parseInt(stored) : 0;
-        if (score > highScore) {
-            localStorage.setItem('zsaHighScore', score);
-            document.getElementById('goNewHighScore').classList.add('visible');
-        } else {
-            document.getElementById('goNewHighScore').classList.remove('visible');
-        }
         document.getElementById('goScore').innerText = score;
         document.getElementById('killDisplay').innerText = this.kills;
         document.getElementById('goldDisplay').innerText = this.gold;
@@ -1628,26 +1672,13 @@ class Game {
         this.ctx.fillStyle = (this.mapCfg && this.mapCfg.bgColor) || "#1a1a1a";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw terrain (clear retro checkerboard)
-        const tileSize = 64;
         const camX = this.camera.pos.x;
         const camY = this.camera.pos.y;
-        
-        const startCol = Math.floor(camX / tileSize);
-        const startRow = Math.floor(camY / tileSize);
-        const endCol = startCol + Math.ceil(this.canvas.width / tileSize) + 1;
-        const endRow = startRow + Math.ceil(this.canvas.height / tileSize) + 1;
 
-        for (let c = startCol; c < endCol; c++) {
-            for (let r = startRow; r < endRow; r++) {
-                const x = c * tileSize - camX;
-                const y = r * tileSize - camY;
-                
-                // Pick a floor tile based on noise/random but consistent
-                const index = Math.abs((c * 13 + r * 7) % ASSETS.floor.length);
-                const img = ASSETS.floor[index];
-                this.ctx.drawImage(img, x, y, tileSize, tileSize);
-            }
+        if (this.terrainPattern) {
+            this.terrainPattern.setTransform(new DOMMatrix([1, 0, 0, 1, -camX, -camY]));
+            this.ctx.fillStyle = this.terrainPattern;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
 
         // Floor tint overlay (map theme)
@@ -1681,21 +1712,27 @@ class Game {
         
         
 
-        this.xpOrbs.forEach(o => o.draw(this.ctx, this.camera));
-        this.healthPickups.forEach(h => h.draw(this.ctx, this.camera));
-        
-        this.candelabras.forEach(c => c.draw(this.ctx, this.camera));
-        this.shrines.forEach(s => s.draw(this.ctx, this.camera));
-        this.props.forEach(p => p.draw(this.ctx, this.camera));
-        
-        // Sort zombies by Y coordinate to draw them in depth order
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
+        const inView = (e, m) => {
+            const dx = e.pos.x - camX;
+            const dy = e.pos.y - camY;
+            return dx > -m && dx < cw + m && dy > -m && dy < ch + m;
+        };
+
+        for (let i = 0; i < this.xpOrbs.length; i++) { const o = this.xpOrbs[i]; if (inView(o, 40)) o.draw(this.ctx, this.camera); }
+        for (let i = 0; i < this.healthPickups.length; i++) { const h = this.healthPickups[i]; if (inView(h, 40)) h.draw(this.ctx, this.camera); }
+        for (let i = 0; i < this.candelabras.length; i++) { const c = this.candelabras[i]; if (inView(c, 120)) c.draw(this.ctx, this.camera); }
+        for (let i = 0; i < this.shrines.length; i++) { const s = this.shrines[i]; if (inView(s, 120)) s.draw(this.ctx, this.camera); }
+        for (let i = 0; i < this.props.length; i++) { const p = this.props[i]; if (inView(p, 80)) p.draw(this.ctx, this.camera); }
+
         this.zombies.sort((a, b) => a.pos.y - b.pos.y);
-        this.zombies.forEach(z => z.draw(this.ctx, this.camera));
-        
+        for (let i = 0; i < this.zombies.length; i++) { const z = this.zombies[i]; if (inView(z, 200)) z.draw(this.ctx, this.camera); }
+
         this.player.draw(this.ctx, this.camera);
-        this.attacks.forEach(a => a.draw(this.ctx, this.camera));
-        this.particles.forEach(p => p.draw(this.ctx, this.camera));
-        this.floatingTexts.forEach(t => t.draw(this.ctx, this.camera));
+        for (let i = 0; i < this.attacks.length; i++) this.attacks[i].draw(this.ctx, this.camera);
+        for (let i = 0; i < this.particles.length; i++) { const p = this.particles[i]; if (inView(p, 20)) p.draw(this.ctx, this.camera); }
+        for (let i = 0; i < this.floatingTexts.length; i++) { const t = this.floatingTexts[i]; if (inView(t, 60)) t.draw(this.ctx, this.camera); }
         
         this.ctx.restore();
 
@@ -1711,6 +1748,11 @@ class Game {
 
     loop(timestamp) {
         const dt = (timestamp - this.lastTime) / 1000;
+
+        if (dt < this.frameMinDt) {
+            requestAnimationFrame((t) => this.loop(t));
+            return;
+        }
         this.lastTime = timestamp;
 
         try {
